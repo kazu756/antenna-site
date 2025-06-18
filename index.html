@@ -4,15 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>マイアンテナサイト</title>
-  <!-- Tailwind CSS CDN -->
+  <!-- Tailwind CSS -->
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-100 text-gray-900">
   <div class="max-w-3xl mx-auto p-4">
     <h1 class="text-2xl font-bold mb-6">📰 マイニュースまとめ</h1>
-    <div id="feed">
-      <p>読み込み中...</p>
-    </div>
+    <div id="feed"><p>読み込み中...</p></div>
   </div>
 
   <script src="https://unpkg.com/rss-parser/dist/rss-parser.min.js"></script>
@@ -21,41 +19,56 @@
     const CORS = "https://api.allorigins.win/get?url=";
     const feedUrls = [
       "https://www3.nhk.or.jp/rss/news/cat0.xml",
-      "https://news.yahoo.co.jp/rss/topics/top-picks.xml"
+      "https://rss.itmedia.co.jp/rss/2.0/news_bursts.xml"
     ];
 
-    const container = document.getElementById("feed");
-    container.innerHTML = "";
+    // フェッチ＆表示更新処理
+    function fetchAndRender() {
+      console.log("🔄 RSS再取得 " + new Date().toLocaleTimeString());
+      const container = document.getElementById("feed");
+      container.innerHTML = "";
 
-    feedUrls.forEach(rawUrl => {
-      const url = encodeURIComponent(rawUrl);
-      fetch(CORS + url)
-        .then(r => r.json())
-        .then(d => parser.parseString(d.contents, (err, feed) => {
-          if (err) return console.error(err);
-          const section = document.createElement("section");
-          section.className = "mb-8";
-          section.innerHTML = `<h2 class="text-xl font-semibold mb-4">${feed.title}</h2>`;
+      feedUrls.forEach(rawUrl => {
+        const url = encodeURIComponent(rawUrl);
+        fetch(CORS + url)
+          .then(r => r.json())
+          .then(d => parser.parseString(d.contents, (err, feed) => {
+            if (err) {
+              console.error(err);
+              return;
+            }
+            const section = document.createElement("section");
+            section.className = "mb-8";
+            section.innerHTML = `<h2 class="text-xl font-semibold mb-4">${feed.title}</h2>`;
+            feed.items.slice(0, 5).forEach(item => {
+              const thumb = item.enclosure?.url || "";
+              const card = document.createElement("div");
+              card.className = "bg-white shadow rounded-lg p-4 mb-4 flex";
+              card.innerHTML = `
+                ${thumb ? `<img src="${thumb}" class="w-24 h-24 object-cover rounded mr-4">` : ''}
+                <div>
+                  <a href="${item.link}" target="_blank"
+                     class="text-lg font-bold text-blue-600 hover:underline">
+                    ${item.title}
+                  </a>
+                  <p class="text-gray-500 text-sm">
+                    ${new Date(item.pubDate).toLocaleString()}
+                  </p>
+                </div>`;
+              section.appendChild(card);
+            });
+            container.appendChild(section);
+          }))
+          .catch(e => console.error(e));
+      });
+    }
 
-          feed.items.slice(0, 5).forEach(item => {
-            const thumb = item.enclosure?.url || "";
-            const card = document.createElement("div");
-            card.className = "bg-white shadow rounded-lg p-4 mb-4 flex";
-            card.innerHTML = `
-              ${thumb ? `<img src="${thumb}" class="w-24 h-24 object-cover rounded mr-4">` : ''}
-              <div>
-                <a href="${item.link}" target="_blank" class="text-lg font-bold text-blue-600 hover:underline">
-                  ${item.title}
-                </a>
-                <p class="text-gray-500 text-sm">${new Date(item.pubDate).toLocaleString()}</p>
-              </div>`;
-            section.appendChild(card);
-          });
+    // 初回取得
+    fetchAndRender();
 
-          container.appendChild(section);
-        }))
-        .catch(e => console.error(e));
-    });
+    // 5分(300,000ms)ごとに自動更新
+    const intervalId = setInterval(fetchAndRender, 5 * 60 * 1000);
+    // ※setInterval で指定秒数ごとに処理が繰り返されます:contentReference[oaicite:1]{index=1}
   </script>
 </body>
 </html>
