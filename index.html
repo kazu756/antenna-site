@@ -1,111 +1,86 @@
 <!DOCTYPE html><html lang="ja">
-<head>
-  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>MyRSSまとめ</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2/dist/tailwind.min.css" rel="stylesheet">
-</head>
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>MyRSSまとめ</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2/dist/tailwind.min.css" rel="stylesheet"></head>
 <body class="bg-gray-50 text-gray-800">
 
-  <!-- フォントサイズ切替ボタン -->
+  <!-- フォントサイズ切替 -->
   <div class="text-right p-4">
+    <button onclick="setFontSize('text-xs')" class="px-2 py-1">極小</button>
     <button onclick="setFontSize('text-sm')" class="px-2 py-1">小</button>
     <button onclick="setFontSize('text-base')" class="px-2 py-1">中</button>
     <button onclick="setFontSize('text-lg')" class="px-2 py-1">大</button>
   </div>
 
-  <!-- ヘッダー -->
-  <header class="bg-white shadow-md py-4">
-    <div class="container mx-auto flex justify-between items-center px-4">
-      <div class="text-2xl font-bold">MyRSSまとめ</div>
-      <nav class="space-x-4">
-        <a href="#" class="hover:text-blue-600">Home</a>
-        <a href="#" class="hover:text-blue-600">About</a>
-        <a href="#" class="hover:text-blue-600">RSS</a>
-      </nav>
-    </div>
-  </header>
-
-  <!-- ヒーロー -->
-  <section class="bg-blue-600 text-white text-center py-12">
-    <h1 class="text-4xl font-bold">最新ニュースを一括チェック</h1>
-    <p class="mt-2 text-lg">複数RSSを定期取得</p>
-  </section>
+  <!-- ヘッダー・ヒーロー省略可（前回コード参照） -->
 
   <main class="container mx-auto py-8 px-4">
     <div id="feed"></div>
   </main>
 
-  <footer class="bg-white py-6 text-center text-sm text-gray-600">
-    © 2025 MyRSSまとめ • <a href="#" class="text-blue-600 hover:underline">GitHub</a>
-  </footer>
-
   <script src="https://unpkg.com/rss-parser/dist/rss-parser.min.js"></script>
   <script>
-    // フォント切替機能
-    function setFontSize(cls) {
-      const html = document.documentElement;
-      html.classList.remove('text-sm','text-base','text-lg');
-      html.classList.add(cls);
-      localStorage.setItem('fontSize', cls);
+    function setFontSize(cls){
+      const h=document.documentElement;
+      ['text-xs','text-sm','text-base','text-lg'].forEach(c=>h.classList.remove(c));
+      h.classList.add(cls); localStorage.setItem('fontSize', cls);
     }
-    window.addEventListener('load', () => {
-      const cls = localStorage.getItem('fontSize') || 'text-base';
+    window.addEventListener('load', ()=>{
+      const cls=localStorage.getItem('fontSize')||'text-sm';
       document.documentElement.classList.add(cls);
     });
-    // 既読管理
-    function toggleRead(link) {
-      const r = JSON.parse(localStorage.getItem('read')||'[]');
-      const idx = r.indexOf(link);
-      if(idx>-1) r.splice(idx,1); else r.push(link);
+
+    function toggleRead(link){
+      const r=JSON.parse(localStorage.getItem('read')||'[]');
+      const i=r.indexOf(link);
+      i>-1?r.splice(i,1):r.push(link);
       localStorage.setItem('read', JSON.stringify(r));
     }
-    function isRead(link) {
+    function isRead(link){
       return JSON.parse(localStorage.getItem('read')||'[]').includes(link);
     }
 
-    const parser = new RSSParser();
-    const CORS = "https://api.allorigins.win/get?url=";
-    const feeds = {
+    const parser=new RSSParser(), CORS="https://api.allorigins.win/get?url=";
+    const feeds={
       "NHKニュース":"https://www3.nhk.or.jp/rss/news/cat0.xml",
       "IT・テクノロジー":"https://rss.itmedia.co.jp/rss/2.0/news_bursts.xml"
     };
 
-    async function fetchAndRender() {
-      console.clear();
-      const feedRoot = document.getElementById("feed");
-      feedRoot.innerHTML = "";
-      for(const [cat, url] of Object.entries(feeds)) {
-        const sect = document.createElement('section');
-        sect.innerHTML = `<h2 class="text-xl font-semibold mb-4">${cat}</h2>`;
-        const grid = document.createElement('div');
-        grid.className = "grid gap-4 sm:grid-cols-2 lg:grid-cols-3";
-
-        const res = await fetch(CORS + encodeURIComponent(url));
-        const d = await res.json();
-        const f = await new Promise((res_,rej)=>parser.parseString(d.contents,(e,f)=>e?rej(e):res_(f)));
-
-        f.items.slice(0,6).forEach(item => {
-          const read = isRead(item.link);
-          const card = document.createElement('div');
-          card.className = `bg-white rounded-lg shadow p-4 flex flex-col justify-between ${read?'opacity-50':''}`;
-          card.innerHTML = `
-            <h3 class="font-semibold text-lg mb-2">${item.title}</h3>
-            <div class="text-gray-500 text-sm">${new Date(item.pubDate).toLocaleString()}</div>
-            <div class="mt-2 flex justify-between">
-              <a href="${item.link}" target="_blank" class="text-blue-600 hover:underline">続きを読む</a>
-              <button onclick="toggleRead('${item.link}');fetchAndRender();" class="text-sm">
-                ${read?'✅既読解除':'✔️既読'} 
-              </button>
-            </div>`;
-          grid.appendChild(card);
+    async function fetchAndRender(){
+      const root=document.getElementById("feed");
+      root.innerHTML="";
+      for(const [cat, url] of Object.entries(feeds)){
+        const sect=document.createElement('section');
+        sect.className="mb-8";
+        sect.innerHTML=`
+          <h2 class="text-xl font-bold mb-2">📁 ${cat}</h2>
+          <p class="text-sm text-gray-600 mb-4">${url}</p>`;
+        const list=document.createElement('ul');
+        list.className="space-y-2";
+        const data=await fetch(CORS+encodeURIComponent(url)).then(r=>r.json());
+        const feed=await new Promise((res,rej)=>parser.parseString(data.contents,(e,f)=>e?rej(e):res(f)));
+        feed.items.slice(0,8).forEach(item=>{
+          const read=isRead(item.link);
+          const li=document.createElement('li');
+          li.className=`bg-white rounded-lg shadow px-4 py-3 flex justify-between items-start ${read?'opacity-50':''}`;
+          li.innerHTML=`
+            <div>
+              <h3 class="font-medium ${read?'line-through':''}">${item.title}</h3>
+              <p class="text-gray-500 text-xs">${new Date(item.pubDate).toLocaleString()}</p>
+              <a href="${item.link}" target="_blank" class="text-blue-600 hover:underline text-xs">続きを読む</a>
+            </div>
+            <button onclick="toggleRead('${item.link}');fetchAndRender()"
+               class="text-xs text-gray-700">
+               ${read?'既読解除':'✔ 既読'}
+            </button>`;
+          list.appendChild(li);
         });
-        sect.appendChild(grid);
-        feedRoot.appendChild(sect);
+        sect.appendChild(list);
+        root.appendChild(sect);
       }
     }
 
     fetchAndRender();
     setInterval(fetchAndRender,5*60*1000);
   </script>
-</body>
-</html>
+</body></html>
