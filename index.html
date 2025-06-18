@@ -1,13 +1,17 @@
-<!DOCTYPE html>
-<html lang="ja">
+<!DOCTYPE html><html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>MyRSSまとめ</title>
-  <!-- Tailwind CSS CDN -->
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-50 text-gray-800">
+
+  <!-- フォントサイズ切替ボタン -->
+  <div class="text-right p-4">
+    <button onclick="setFontSize('text-sm')" class="px-2 py-1">小</button>
+    <button onclick="setFontSize('text-base')" class="px-2 py-1">中</button>
+    <button onclick="setFontSize('text-lg')" class="px-2 py-1">大</button>
+  </div>
 
   <!-- ヘッダー -->
   <header class="bg-white shadow-md py-4">
@@ -21,68 +25,87 @@
     </div>
   </header>
 
-  <!-- ヒーローセクション -->
+  <!-- ヒーロー -->
   <section class="bg-blue-600 text-white text-center py-12">
     <h1 class="text-4xl font-bold">最新ニュースを一括チェック</h1>
-    <p class="mt-2 text-lg">複数のRSSから自動取得・定期更新</p>
+    <p class="mt-2 text-lg">複数RSSを定期取得</p>
   </section>
 
-  <!-- 記事一覧エリア -->
   <main class="container mx-auto py-8 px-4">
-    <div id="feed" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      <p>読み込み中...</p>
-    </div>
+    <div id="feed"></div>
   </main>
 
-  <!-- フッター -->
   <footer class="bg-white py-6 text-center text-sm text-gray-600">
     © 2025 MyRSSまとめ • <a href="#" class="text-blue-600 hover:underline">GitHub</a>
   </footer>
 
-  <!-- JavaScript（RSS取得＋カード生成＋定期更新） -->
   <script src="https://unpkg.com/rss-parser/dist/rss-parser.min.js"></script>
   <script>
+    // フォント切替機能
+    function setFontSize(cls) {
+      const html = document.documentElement;
+      html.classList.remove('text-sm','text-base','text-lg');
+      html.classList.add(cls);
+      localStorage.setItem('fontSize', cls);
+    }
+    window.addEventListener('load', () => {
+      const cls = localStorage.getItem('fontSize') || 'text-base';
+      document.documentElement.classList.add(cls);
+    });
+    // 既読管理
+    function toggleRead(link) {
+      const r = JSON.parse(localStorage.getItem('read')||'[]');
+      const idx = r.indexOf(link);
+      if(idx>-1) r.splice(idx,1); else r.push(link);
+      localStorage.setItem('read', JSON.stringify(r));
+    }
+    function isRead(link) {
+      return JSON.parse(localStorage.getItem('read')||'[]').includes(link);
+    }
+
     const parser = new RSSParser();
     const CORS = "https://api.allorigins.win/get?url=";
-    const feeds = [
-      "https://www3.nhk.or.jp/rss/news/cat0.xml",
-      "https://news.yahoo.co.jp/rss/topics/top-picks.xml"
-    ];
+    const feeds = {
+      "NHKニュース":"https://www3.nhk.or.jp/rss/news/cat0.xml",
+      "IT・テクノロジー":"https://rss.itmedia.co.jp/rss/2.0/news_bursts.xml"
+    };
 
     async function fetchAndRender() {
-      console.log("🔄 更新: " + new Date().toLocaleTimeString());
-      const container = document.getElementById("feed");
-      container.innerHTML = "";
-      for (const urlRaw of feeds) {
-        try {
-          const res = await fetch(CORS + encodeURIComponent(urlRaw));
-          const data = await res.json();
-          const feed = await new Promise((resolve, reject) =>
-            parser.parseString(data.contents, (e, f) => e ? reject(e) : resolve(f))
-          );
-          // カード生成
-          feed.items.slice(0, 6).forEach(item => {
-            const thumb = item.enclosure?.url || "";
-            const card = document.createElement("div");
-            card.className = "bg-white rounded-lg shadow hover:shadow-lg transition overflow-hidden flex flex-col";
-            card.innerHTML = `
-              ${thumb ? `<img src="${thumb}" alt="" class="w-full h-40 object-cover">` : ''}
-              <div class="p-4 flex-grow flex flex-col justify-between">
-                <h3 class="font-semibold text-lg mb-2">${item.title}</h3>
-                <div class="text-gray-500 text-sm">${new Date(item.pubDate).toLocaleString()}</div>
-                <a href="${item.link}" target="_blank"
-                   class="mt-2 text-blue-600 hover:underline">続きを読む</a>
-              </div>`;
-            container.appendChild(card);
-          });
-        } catch (e) {
-          console.error(e);
-        }
+      console.clear();
+      const feedRoot = document.getElementById("feed");
+      feedRoot.innerHTML = "";
+      for(const [cat, url] of Object.entries(feeds)) {
+        const sect = document.createElement('section');
+        sect.innerHTML = `<h2 class="text-xl font-semibold mb-4">${cat}</h2>`;
+        const grid = document.createElement('div');
+        grid.className = "grid gap-4 sm:grid-cols-2 lg:grid-cols-3";
+
+        const res = await fetch(CORS + encodeURIComponent(url));
+        const d = await res.json();
+        const f = await new Promise((res_,rej)=>parser.parseString(d.contents,(e,f)=>e?rej(e):res_(f)));
+
+        f.items.slice(0,6).forEach(item => {
+          const read = isRead(item.link);
+          const card = document.createElement('div');
+          card.className = `bg-white rounded-lg shadow p-4 flex flex-col justify-between ${read?'opacity-50':''}`;
+          card.innerHTML = `
+            <h3 class="font-semibold text-lg mb-2">${item.title}</h3>
+            <div class="text-gray-500 text-sm">${new Date(item.pubDate).toLocaleString()}</div>
+            <div class="mt-2 flex justify-between">
+              <a href="${item.link}" target="_blank" class="text-blue-600 hover:underline">続きを読む</a>
+              <button onclick="toggleRead('${item.link}');fetchAndRender();" class="text-sm">
+                ${read?'✅既読解除':'✔️既読'} 
+              </button>
+            </div>`;
+          grid.appendChild(card);
+        });
+        sect.appendChild(grid);
+        feedRoot.appendChild(sect);
       }
     }
 
     fetchAndRender();
-    setInterval(fetchAndRender, 5 * 60 * 1000); // 5分ごとに更新
+    setInterval(fetchAndRender,5*60*1000);
   </script>
 </body>
 </html>
