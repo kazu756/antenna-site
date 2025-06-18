@@ -1,74 +1,81 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>マイアンテナサイト</title>
-  <!-- Tailwind CSS -->
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MyRSSまとめ</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body class="bg-gray-100 text-gray-900">
-  <div class="max-w-3xl mx-auto p-4">
-    <h1 class="text-2xl font-bold mb-6">📰 マイニュースまとめ</h1>
-    <div id="feed"><p>読み込み中...</p></div>
-  </div>
+<body class="bg-gray-50 text-gray-800">
+  <!-- ヘッダー -->
+  <header class="bg-white shadow-md py-4">
+    <div class="container mx-auto flex justify-between items-center">
+      <div class="text-2xl font-bold">MyRSSまとめ</div>
+      <nav>
+        <a href="#" class="px-3 hover:text-blue-600">Home</a>
+        <a href="#" class="px-3 hover:text-blue-600">About</a>
+      </nav>
+    </div>
+  </header>
 
+  <!-- ヒーロー -->
+  <section class="bg-blue-600 text-white text-center py-12">
+    <h1 class="text-4xl font-bold">最新ニュースを一括チェック</h1>
+    <p class="mt-2 text-lg">複数のRSSから自動取得・定期更新</p>
+  </section>
+
+  <!-- 記事一覧 -->
+  <main class="container mx-auto py-8">
+    <div id="feed" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <p>読み込み中...</p>
+    </div>
+  </main>
+
+  <!-- フッター -->
+  <footer class="bg-white py-6 text-center text-sm text-gray-600">
+    © 2025 MyRSSまとめ • <a href="#" class="text-blue-600 hover:underline">GitHub</a>
+  </footer>
+
+  <!-- JS -->
   <script src="https://unpkg.com/rss-parser/dist/rss-parser.min.js"></script>
   <script>
     const parser = new RSSParser();
     const CORS = "https://api.allorigins.win/get?url=";
-    const feedUrls = [
+    const feeds = [
       "https://www3.nhk.or.jp/rss/news/cat0.xml",
-      "https://rss.itmedia.co.jp/rss/2.0/news_bursts.xml"
+      "https://news.yahoo.co.jp/rss/topics/top-picks.xml"
     ];
 
-    // フェッチ＆表示更新処理
-    function fetchAndRender() {
-      console.log("🔄 RSS再取得 " + new Date().toLocaleTimeString());
+    async function fetchAndRender() {
       const container = document.getElementById("feed");
       container.innerHTML = "";
-
-      feedUrls.forEach(rawUrl => {
-        const url = encodeURIComponent(rawUrl);
-        fetch(CORS + url)
-          .then(r => r.json())
-          .then(d => parser.parseString(d.contents, (err, feed) => {
-            if (err) {
-              console.error(err);
-              return;
-            }
-            const section = document.createElement("section");
-            section.className = "mb-8";
-            section.innerHTML = `<h2 class="text-xl font-semibold mb-4">${feed.title}</h2>`;
-            feed.items.slice(0, 5).forEach(item => {
-              const thumb = item.enclosure?.url || "";
-              const card = document.createElement("div");
-              card.className = "bg-white shadow rounded-lg p-4 mb-4 flex";
-              card.innerHTML = `
-                ${thumb ? `<img src="${thumb}" class="w-24 h-24 object-cover rounded mr-4">` : ''}
-                <div>
-                  <a href="${item.link}" target="_blank"
-                     class="text-lg font-bold text-blue-600 hover:underline">
-                    ${item.title}
-                  </a>
-                  <p class="text-gray-500 text-sm">
-                    ${new Date(item.pubDate).toLocaleString()}
-                  </p>
-                </div>`;
-              section.appendChild(card);
-            });
-            container.appendChild(section);
-          }))
-          .catch(e => console.error(e));
-      });
+      for (const rawUrl of feeds) {
+        try {
+          const res = await fetch(CORS + encodeURIComponent(rawUrl));
+          const data = await res.json();
+          const feed = await new Promise((r,j)=>parser.parseString(data.contents,(e,f)=>e?j(e):r(f)));
+          feed.items.slice(0,6).forEach(item => {
+            const thumb = item.enclosure?.url || "";
+            const card = document.createElement("div");
+            card.className = "bg-white rounded-lg shadow hover:shadow-lg transition overflow-hidden flex flex-col";
+            card.innerHTML = `
+               ${thumb? `<img src="${thumb}" alt="" class="w-full h-40 object-cover">` : ''}
+               <div class="p-4 flex-grow flex flex-col justify-between">
+                 <div>
+                   <h3 class="font-semibold text-lg mb-2">${item.title}</h3>
+                 </div>
+                 <div class="text-gray-500 text-sm">${new Date(item.pubDate).toLocaleString()}</div>
+                 <a href="${item.link}" target="_blank" class="mt-2 text-blue-600 hover:underline">続きを読む</a>
+               </div>`;
+            container.appendChild(card);
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
     }
 
-    // 初回取得
     fetchAndRender();
-
-    // 5分(300,000ms)ごとに自動更新
-    const intervalId = setInterval(fetchAndRender, 5 * 60 * 1000);
-    // ※setInterval で指定秒数ごとに処理が繰り返されます:contentReference[oaicite:1]{index=1}
+    setInterval(fetchAndRender, 5 * 60 * 1000);
   </script>
 </body>
 </html>
